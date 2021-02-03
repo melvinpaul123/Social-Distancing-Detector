@@ -3,6 +3,7 @@ import cv2
 from scipy.spatial import distance as dist
 import imutils
 import os
+import sys
 
 MODEL_PATH = "yolo-coco"
 MIN_CONF = 0.3
@@ -48,39 +49,43 @@ configPath = os.path.sep.join([MODEL_PATH, "yolov3.cfg"])
 
 net = cv2.dnn.readNetFromDarknet(configPath, weightsPath)
 if USE_GPU:
-	print("[INFO] setting preferable backend and target to CUDA...")
+	print("Setting preferable backend and target to CUDA...")
 	net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
 	net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
 
 ln = net.getLayerNames()
 ln = [ln[i[0] - 1] for i in net.getUnconnectedOutLayers()]
-print("[INFO] accessing video stream...")
-vs = cv2.VideoCapture("pedestrians.mp4")
+cap = cv2.VideoCapture("pedestrians.mp4")
+if (cap.isOpened() == False):  
+    print("-> Error reading video file") 
+    sys.exit()
 
 while True:
-    (grabbed, frame) = vs.read()
-    if not grabbed:
+    ret, frame = cap.read()
+    if ret == False:
+        print('Failed to capture frame from camera. Check camera index in cv2.VideoCapture(0) \n')
+        cv2.destroyAllWindows()
         break
     frame = imutils.resize(frame, width=700)
     results = detect_people(frame, net, ln, personIdx=LABELS.index("person"))
-    violate = set()
+    violations = set()
     if len(results) >= 2:
         centroids = np.array([r[2] for r in results])
         D = dist.cdist(centroids, centroids, metric="euclidean")
         for i in range(0, D.shape[0]):
             for j in range(i + 1, D.shape[1]):
                 if D[i, j] < MIN_DISTANCE:
-                    violate.add(i)
-                    violate.add(j)
+                    violations.add(i)
+                    violations.add(j)
     for (i, (prob, bbox, centroid)) in enumerate(results):
         (startX, startY, endX, endY) = bbox
         (cX, cY) = centroid
         color = (0, 255, 0)
-        if i in violate:
+        if i in violations:
             color = (0, 0, 255)
         cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
         cv2.circle(frame, (cX, cY), 5, color, 1)
-    text = "Social Distancing Violations: {}".format(len(violate))
+    text = "No. of Social Distancing Violations= "+ str(len(violations))
     cv2.putText(frame, text, (10, frame.shape[0] - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.85, (0, 0, 255), 3)
     
     cv2.imshow("Output", frame)
