@@ -1,7 +1,6 @@
 import numpy as np
 import cv2
 from scipy.spatial import distance as dist
-import imutils
 import os
 import sys
 
@@ -59,6 +58,8 @@ cap = cv2.VideoCapture("pedestrians.mp4")
 if (cap.isOpened() == False):  
     print("-> Error reading video file") 
     sys.exit()
+frame_width = int(cap.get(3)) 
+frame_height = int(cap.get(4)) 
 
 while True:
     ret, frame = cap.read()
@@ -66,7 +67,7 @@ while True:
         print('Failed to capture frame from camera. Check camera index in cv2.VideoCapture(0) \n')
         cv2.destroyAllWindows()
         break
-    frame = imutils.resize(frame, width=700)
+    frame = cv2.resize(frame, (int(frame_width/2),int(frame_height/2)))
     results = detect_people(frame, net, ln, personIdx=LABELS.index("person"))
     violations = set()
     if len(results) >= 2:
@@ -93,4 +94,4 @@ while True:
     if k == 27:
         print("-> Ending Video Stream")
         cv2.destroyAllWindows()
-        break  
+        break
